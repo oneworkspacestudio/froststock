@@ -15,3 +15,11 @@ workspace-app.json. Keep the same app ID and paths across future updates.
 Build and publish with the app-local scripts. Verify the Windows package in
 isolated Workspace fixtures and promote the shared update index afterward.
 Do not publish another Workspace release for ordinary Froststock updates.
+
+Froststock v0.1.0-preview.8 was published from source 5166ed8. The
+publisher verified all ten GitHub release asset digests. Anonymous
+downloads matched the install manifest and all five managed packages.
+Workspace preview.139 remained the latest suite release when Froststock
+was published. The PowerShell publisher now uses the returned draft ID
+for verification and publication, and passed new and resumed draft
+fixtures without a live release change.

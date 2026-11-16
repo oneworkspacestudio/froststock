@@ -31,20 +31,21 @@ foreach($entry in $catalog.packages.PSObject.Properties.Value){
  $asset=$local[$entry.asset]
  if(!$asset -or $asset.size -ne $entry.size -or $asset.digest -cne ('sha256:'+$entry.sha256)){throw 'Managed package does not match its asset'}
 }
-$existing=gh release view $tag --repo $repo --json isDraft,targetCommitish 2>$null
-if($LASTEXITCODE){
- gh release create $tag --repo $repo --draft --prerelease --target $source --title "Froststock $tag" --notes 'Independent Froststock release for One Workspace. Install or update it from Workspace Updates.'
+$rows=gh api "repos/$repo/releases?per_page=20" | ConvertFrom-Json
+if($LASTEXITCODE){throw 'Froststock release metadata unavailable'}
+$release=$rows | Where-Object tag_name -CEQ $tag
+if(!$release){
+ $request=@{tag_name=$tag;target_commitish=$source;name="Froststock $tag";draft=$true;prerelease=$tag.Contains('-');
+            make_latest='false';body='Independent Froststock release for One Workspace. Install or update it from Workspace Updates.'}
+ $release=$request | ConvertTo-Json -Compress | gh api "repos/$repo/releases" --method POST --input - | ConvertFrom-Json
  if($LASTEXITCODE){throw 'Froststock draft creation failed'}
-}else{
- $draft=$existing | ConvertFrom-Json
- if(!$draft.isDraft -or $draft.targetCommitish -cne $source){throw 'An immutable or mismatched release already uses this tag'}
 }
+if(!$release.draft -or $release.target_commitish -cne $source){throw 'An immutable or mismatched release already uses this tag'}
+$id=$release.id
 function GetAssets {
- $rows=gh api "repos/$repo/releases?per_page=20" | ConvertFrom-Json
- if($LASTEXITCODE){throw 'Froststock release metadata unavailable'}
- $release=$rows | Where-Object tag_name -CEQ $tag
- if(!$release){throw 'Froststock release missing'}
- return $release.assets
+ $current=gh api "repos/$repo/releases/$id" | ConvertFrom-Json
+ if($LASTEXITCODE -or $current.tag_name -cne $tag){throw 'Froststock release metadata unavailable'}
+ return $current.assets
 }
 function VerifyAsset($asset) {
  $expected=$local[$asset.name]
@@ -61,7 +62,7 @@ if($missing.Count){
 $uploaded=@(GetAssets)
 if($uploaded.Count -ne $local.Count){throw 'Froststock release is missing assets'}
 foreach($asset in $uploaded){VerifyAsset $asset}
-gh release edit $tag --repo $repo --draft=false --prerelease
+gh api "repos/$repo/releases/$id" --method PATCH --field draft=false --silent
 if($LASTEXITCODE){throw 'Froststock publication failed'}
 $published=(gh api "repos/$repo/commits/$tag" --jq '.sha').Trim()
 if($LASTEXITCODE -or $published -cne $source){throw 'Published Froststock tag differs from the source'}

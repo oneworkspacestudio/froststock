@@ -1,0 +1,36 @@
+{
+  "app": {
+    "id": "froststock",
+    "name": "Froststock",
+    "description": "Scan freezer items and expiry labels into My Drive",
+    "kind": "process",
+    "package": "froststock",
+    "executable": "Froststock.exe",
+    "port": 9048,
+    "route": "/froststock",
+    "stripPrefix": true,
+    "health": "/healthz",
+    "depends": [
+      "accounts",
+      "drive"
+    ],
+    "oidc": true,
+    "callback": "/froststock/auth/callback",
+    "args": [
+      "--data",
+      "${DATA}/froststock",
+      "--listen",
+      "127.0.0.1:${PORT}",
+      "--origin",
+      "${ORIGIN}/froststock",
+      "--no-browser"
+    ]
+  },
+  "packages": {
+    "froststock": "Froststock.exe",
+    "froststock-contract": "docs/Froststock/compatibility.json",
+    "froststock-guide": "docs/Froststock/guide.md",
+    "froststock-license": "licenses/Froststock-LICENSE.txt",
+    "froststock-notices": "licenses/Froststock-NOTICE.txt"
+  }
+}

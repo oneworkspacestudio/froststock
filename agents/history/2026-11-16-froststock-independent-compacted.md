@@ -23,3 +23,8 @@ Workspace preview.139 remained the latest suite release when Froststock
 was published. The PowerShell publisher now uses the returned draft ID
 for verification and publication, and passed new and resumed draft
 fixtures without a live release change.
+
+The public preview.140 updater installed Froststock alone from the app
+release. Isolated Windows acceptance covered existing bundles, fresh
+installation, owner sign-in, mobile OCR, app-only rollback and preservation
+of the manager binary, freezer records, photos and protected DeepSeek settings.

@@ -355,3 +355,5 @@ h1 { font-size: clamp(30px, 5.5vw, 42px); font-weight: 800; letter-spacing: -.04
 .date-candidates{display:flex;flex-wrap:wrap;gap:7px;margin:0;padding:0;border:0}
 .date-candidates legend{margin-bottom:5px;color:var(--muted);font-size:12px}
 .date-candidates button{min-height:42px}
+.sharing-email { overflow-wrap: anywhere; min-width: 0; }
+.sharing-list .button { flex-shrink: 0; }

@@ -1,4 +1,4 @@
-import { connect, allItems, saveItem, updateItem, removeItem, addItems, itemPhotoURL, syncPending, jobPhotos, loadPhoto, driveStatus, deepSeekStatus, configureDeepSeek, readWithDeepSeek } from './storage.js';
+import { connect, allItems, saveItem, updateItem, removeItem, addItems, itemPhotoURL, syncPending, jobPhotos, loadPhoto, driveStatus, deepSeekStatus, configureDeepSeek, readWithDeepSeek, freezerSharing, shareFreezer, unshareFreezer } from './storage.js';
 import { isDate, offsetDate, daysFromToday, formatDate } from './dates.js';
 import { scanLabels } from './recognition.js';
 import { chooseExpiryCrop, validCrop } from './expiry-crop.js';
@@ -32,7 +32,8 @@ let itemPhoto;
 let firstPreview;
 let sessionCount = 0;
 let persistentRequested = false;
-let ownerReady = false;
+let accountReady = false;
+let freezerOwner = false;
 const cropOnCapture = $('#crop-on-capture');
 cropOnCapture.checked = localStorage.getItem('froststock-crop-expiry') === 'on';
 cropOnCapture.addEventListener('change', () => localStorage.setItem('froststock-crop-expiry', cropOnCapture.checked ? 'on' : 'off'));
@@ -178,7 +179,10 @@ function applyRoute() {
   }
   $('#dashboard').hidden = activePage === 'settings';
   $('#settings').hidden = activePage !== 'settings';
-  if (activePage === 'settings' && ownerReady) void refreshDeepSeekSettings();
+  if (activePage === 'settings' && accountReady) {
+    void refreshDeepSeekSettings();
+    if (freezerOwner) void refreshSharing();
+  }
   $('#page-title').textContent = routes[activePage];
   render();
 }
@@ -258,7 +262,7 @@ async function uploadQueue() {
     else await sync();
   } catch (error) {
     storageError(error);
-    if (ownerReady) {
+    if (accountReady) {
       await loadItems().catch(storageError);
       void processQueue();
     }
@@ -309,7 +313,7 @@ function clearFirst() {
 }
 
 function openScanner() {
-  if (scanner.open || !ownerReady) return;
+  if (scanner.open || !accountReady) return;
   sessionCount = 0;
   displayScanError();
   scanner.showModal();
@@ -659,6 +663,52 @@ const deepSeekRemove = $('#deepseek-remove');
 const deepSeekMessage = $('#deepseek-status');
 let deepSeekSettingsBusy = false;
 
+const sharingForm = $('#sharing-form');
+const sharingEmail = $('#sharing-email');
+const sharingList = $('#sharing-list');
+const sharingMessage = $('#sharing-status');
+let sharingBusy = false;
+
+function showSharing({ emails }) {
+  sharingList.innerHTML = emails.map(email => '<div class="setting-row"><span class="sharing-email">' + esc(email) +
+    '</span><button type="button" class="button subtle" data-remove-share="' + esc(email) + '">Remove access</button></div>').join('');
+  sharingMessage.textContent = emails.length ? '' : 'Your freezer is currently private.';
+}
+
+async function refreshSharing() {
+  try {
+    const result = await freezerSharing();
+    if (!sharingBusy) showSharing(result);
+  } catch (error) {
+    sharingMessage.textContent = error.message;
+  }
+}
+
+async function changeSharing(email, remove) {
+  if (sharingBusy) return;
+  sharingBusy = true;
+  for (const button of $('#sharing-settings').querySelectorAll('button')) button.disabled = true;
+  try {
+    showSharing(await (remove ? unshareFreezer(email) : shareFreezer(email)));
+    if (!remove) sharingEmail.value = '';
+    sharingMessage.textContent = remove ? 'Access removed.' : 'Freezer shared. They can now sign in to Froststock.';
+  } catch (error) {
+    sharingMessage.textContent = error.message;
+  } finally {
+    sharingBusy = false;
+    for (const button of $('#sharing-settings').querySelectorAll('button')) button.disabled = false;
+  }
+}
+
+sharingForm.addEventListener('submit', event => {
+  event.preventDefault();
+  void changeSharing(sharingEmail.value, false);
+});
+sharingList.addEventListener('click', event => {
+  const button = event.target.closest('[data-remove-share]');
+  if (button) void changeSharing(button.dataset.removeShare, true);
+});
+
 function showDeepSeekStatus({ configured }) {
   deepSeekRemove.hidden = !configured;
   deepSeekMessage.textContent = configured ? 'DeepSeek is the default label reader.' : 'Local label reading is active.';
@@ -715,7 +765,7 @@ details.addEventListener('close', () => {
 });
 window.addEventListener('hashchange', () => { filter = 'all'; applyRoute(); });
 async function refresh() {
-  if (!ownerReady) return;
+  if (!accountReady) return;
   await loadItems();
   void uploadQueue();
   void processQueue();
@@ -723,11 +773,12 @@ async function refresh() {
 
 function storageError(error) {
   if (error.status === 401 || error.status === 403) {
-    ownerReady = false;
+    accountReady = false;
     if (scanner.open && !processingPhoto) scanner.close();
     if (details.open) details.close();
     $('#main').hidden = true;
     $('#session-screen').hidden = false;
+    $('#session-message').textContent = error.message;
     return;
   }
   notification(error.message || 'My Drive is unavailable. Queued photos will be retried.');
@@ -738,10 +789,18 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) refr
 channel?.addEventListener('message', () => refresh().catch(storageError));
 setInterval(() => { if (!document.hidden) refresh().catch(storageError); }, 20000);
 applyRoute();
-connect().then(() => {
-  ownerReady = true;
+connect().then(access => {
+  accountReady = true;
+  freezerOwner = access.owner;
+  $('#sharing-settings').hidden = !freezerOwner;
+  $('#deepseek-settings').hidden = !freezerOwner;
+  $('#deepseek-shared').hidden = freezerOwner;
+  $('#open-drive').hidden = !freezerOwner;
   $('#main').hidden = false;
   $('#session-screen').hidden = true;
-  if (activePage === 'settings') void refreshDeepSeekSettings();
+  if (activePage === 'settings') {
+    void refreshDeepSeekSettings();
+    if (freezerOwner) void refreshSharing();
+  }
   return refresh();
 }).catch(storageError);

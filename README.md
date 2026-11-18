@@ -1,6 +1,6 @@
 # Froststock
 
-On One Workspace preview.140 or later with My Drive installed, open **Updates** and select **Froststock** to install or update it. Open Froststock from the Workspace app picker and sign in with the Workspace owner account.
+On One Workspace preview.140 or later with My Drive installed, open **Updates** and select **Froststock** to install or update it. Open Froststock from the Workspace app picker and sign in with your OneAccounts account. The owner can share the freezer with other users in Settings.
 
 Froststock publishes its own Windows app package and Workspace update manifest. If you already use Froststock, update Workspace once to enable this release channel, then select the Froststock update. The app keeps the same My Drive folder and its existing private settings.
 
@@ -10,7 +10,9 @@ Take or upload one photo of the food and a second photo of its date label. The s
 
 Use the gear to open settings and change the sort order. Items marked as used move to **Settings → Your data → View history**, where you can return them to the freezer.
 
-Your photos and inventory records live in **My Drive → Froststock**. A second device signed in to the same Workspace sees the same inventory. Each item folder holds `item.jpg`, `expiry.jpg`, and `item.json`. Keep those files together. My Drive access controls who can view the underlying Drive files. Froststock itself permits the Workspace owner.
+Your photos and inventory records live in **My Drive → Froststock**. A second device signed in to the same Workspace sees the same inventory. Each item folder holds `item.jpg`, `expiry.jpg`, and `item.json`. Keep those files together. My Drive access controls who can view the underlying Drive files.
+
+To share the freezer, the owner opens **Settings → Share freezer** and adds the other person's OneAccounts email address. They sign in to Froststock with their own account on the same OneAccounts server. Shared users can view the photos, add scans, edit items, mark food as used and manage freezer history. Everyone works with the same inventory. The owner can remove access in Settings. The owner manages sharing and the saved DeepSeek key, which shared users can use for scanning.
 
 On the expiry-photo step, select **Crop expiry photo after capture**. Move the box or drag its corners around the date and its “use by” or “best before” label, then tap **Use crop**. The scanner remembers your choice on this device. **Use full photo** queues the whole image. For saved items, use **Crop & read again** by the expiry photo. The original remains in My Drive, so you can adjust a crop later.
 

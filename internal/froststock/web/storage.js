@@ -19,18 +19,27 @@ async function request(url, init = {}) {
 
 export async function connect() {
   const session = await request(new URL('./api/me', import.meta.url));
-  if (session.user.role !== 'owner') {
-    throw Object.assign(new Error('Open Froststock with the Workspace owner account.'), { status: 403 });
-  }
   account = session.user.id;
   csrf = session.csrf;
+  const access = await request(new URL('./api/access', import.meta.url));
+  if (!access.allowed) {
+    throw Object.assign(new Error('Ask the freezer owner to share Froststock with your OneAccounts email address.'), { status: 403 });
+  }
   database = new Promise((resolve, reject) => {
     const open = indexedDB.open('workspace-froststock-' + account, 1);
     open.onupgradeneeded = () => open.result.createObjectStore('pending', { keyPath: 'id' });
     open.onerror = () => reject(open.error);
     open.onsuccess = () => resolve(open.result);
   });
+  return access;
 }
+
+const sharingURL = new URL('./api/sharing', import.meta.url);
+export const freezerSharing = () => request(sharingURL);
+export const shareFreezer = email => request(sharingURL, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
+});
+export const unshareFreezer = email => request(new URL('./api/sharing/' + encodeURIComponent(email), import.meta.url), { method: 'DELETE' });
 
 const recognitionSettings = new URL('./api/recognition/settings', import.meta.url);
 export const deepSeekStatus = () => request(recognitionSettings);

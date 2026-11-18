@@ -23,7 +23,7 @@
     </header>
     <section id="session-screen" class="session-screen" hidden>
       <h1>Open your freezer</h1>
-      <p>Sign in with the Workspace owner account to use Froststock and its My Drive folder.</p>
+      <p id="session-message">Sign in with your OneAccounts account to open your shared freezer.</p>
       <a class="button primary" href="/_workspace/open/froststock">Continue with MyAccounts</a>
     </section>
     <main id="main" hidden>
@@ -49,7 +49,18 @@
       </div>
       <section id="settings" class="settings" hidden aria-labelledby="settings-title">
         <div class="page-heading"><div><h1 id="settings-title">Settings</h1><p>Manage scanning and inventory preferences.</p></div></div>
+        <section class="settings-card" id="sharing-settings" hidden><h2>Share freezer</h2>
+          <p>People you add can scan, edit and remove items in this freezer. They sign in with their own account on your OneAccounts server.</p>
+          <form id="sharing-form" class="deepseek-settings">
+            <label for="sharing-email">OneAccounts email address</label>
+            <input id="sharing-email" type="email" maxlength="254" autocomplete="email" required>
+            <button class="button primary" type="submit">Share freezer</button>
+          </form>
+          <div id="sharing-list" class="sharing-list"></div>
+          <p id="sharing-status" role="status"></p>
+        </section>
         <section class="settings-card"><h2><i class="icon" data-icon="sparkles"></i> DeepSeek</h2>
+          <p id="deepseek-shared" hidden>Your scans use the freezer owner's label reader. The owner manages the DeepSeek key.</p>
           <form id="deepseek-settings" class="deepseek-settings">
             <p>Saving a key makes DeepSeek the default label reader. Item photos and the expiry photo or its crop are sent to DeepSeek. Local scanning is available if a cloud scan fails.</p>
             <label for="deepseek-key">DeepSeek API key</label>
@@ -68,7 +79,7 @@
         </section>
         <section class="settings-card"><h2><i class="icon" data-icon="shield-check"></i> Your data</h2>
           <div class="setting-row"><label for="sort"><strong>Sort freezer items</strong></label><select id="sort"><option value="expiry">Expiry date</option><option value="newest">Newest</option><option value="name">Name</option></select></div>
-          <div class="setting-row"><div><strong>My Drive storage</strong><p>Your item records and photos are in the Froststock folder. Use the same Workspace account to see them on another device.</p></div><a class="button subtle" href="/drive/files/My%20Drive/Froststock">Open My Drive</a></div>
+          <div class="setting-row"><div><strong>My Drive storage</strong><p>This freezer's records and photos are in the owner's Froststock folder. Everyone with shared access sees the same inventory in Froststock.</p></div><a id="open-drive" class="button subtle" href="/drive/files/My%20Drive/Froststock" hidden>Open My Drive</a></div>
           <div class="setting-row"><div><strong>Freezer history</strong><p>View or restore items you’ve marked as used.</p></div><a class="button subtle" href="#history" data-nav="history"><i class="icon" data-icon="history"></i> View history</a></div>
           <div class="setting-row"><div><strong>Sample inventory</strong><p>Try the freezer with example items.</p></div><button type="button" class="button subtle" data-action="toggle-demo" id="toggle-demo">Show examples</button></div>
           <div class="setting-row"><div><strong>Inventory backup</strong><p>Export a copy or import a Froststock backup, including from the standalone preview.</p></div><div class="backup-buttons"><button type="button" class="button subtle" data-action="export"><i class="icon" data-icon="download"></i> Export</button><button type="button" class="button subtle" data-action="import"><i class="icon" data-icon="upload"></i> Import</button></div></div>

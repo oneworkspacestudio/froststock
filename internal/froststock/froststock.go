@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	Version  = "0.1.0-preview.8"
+	Version  = "0.1.0-preview.9"
 	photoMax = 3 << 20
 )
 
@@ -116,23 +116,18 @@ func Register(host *apphost.Host, root string) error {
 		return err
 	}
 	store := &drive{root: root}
-	owner := func(handler http.HandlerFunc) http.HandlerFunc {
-		return host.Owner(func(w http.ResponseWriter, r *http.Request) {
-			if !apphost.Equal(apphost.Current(r).User.Subject, host.Config.Owner) {
-				apphost.Problem(w, 403, "Open Froststock with the Workspace owner account")
-				return
-			}
-			handler(w, r)
-		})
+	access := &sharing{host: host}
+	if err := access.register(); err != nil {
+		return err
 	}
-	host.Mux.HandleFunc("GET /api/recognition/settings", owner(cloud.status))
-	host.Mux.HandleFunc("PUT /api/recognition/settings", owner(cloud.configure))
-	host.Mux.HandleFunc("POST /api/recognition/read", owner(cloud.read))
-	host.Mux.HandleFunc("GET /api/items", owner(store.list))
-	host.Mux.HandleFunc("POST /api/items/{id}", owner(store.create))
-	host.Mux.HandleFunc("PUT /api/items/{id}", owner(store.update))
-	host.Mux.HandleFunc("DELETE /api/items/{id}", owner(store.delete))
-	host.Mux.HandleFunc("GET /api/items/{id}/{photo}", owner(store.photo))
+	host.Mux.HandleFunc("GET /api/recognition/settings", access.require(cloud.status))
+	host.Mux.HandleFunc("PUT /api/recognition/settings", access.owner(cloud.configure))
+	host.Mux.HandleFunc("POST /api/recognition/read", access.require(cloud.read))
+	host.Mux.HandleFunc("GET /api/items", access.require(store.list))
+	host.Mux.HandleFunc("POST /api/items/{id}", access.require(store.create))
+	host.Mux.HandleFunc("PUT /api/items/{id}", access.require(store.update))
+	host.Mux.HandleFunc("DELETE /api/items/{id}", access.require(store.delete))
+	host.Mux.HandleFunc("GET /api/items/{id}/{photo}", access.require(store.photo))
 	return nil
 }
 

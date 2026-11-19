@@ -2,7 +2,7 @@
   "app": {
     "id": "froststock",
     "name": "Froststock",
-    "description": "Scan freezer items and expiry labels into My Drive",
+    "description": "Freshstock keeps fridge and freezer items, photos and expiry labels in My Drive",
     "kind": "process",
     "package": "froststock",
     "executable": "Froststock.exe",

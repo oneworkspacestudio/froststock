@@ -23,7 +23,7 @@ export async function connect() {
   csrf = session.csrf;
   const access = await request(new URL('./api/access', import.meta.url));
   if (!access.allowed) {
-    throw Object.assign(new Error('Ask the freezer owner to share Froststock with your OneAccounts email address.'), { status: 403 });
+    throw Object.assign(new Error('Ask the kitchen owner to share Freshstock with your OneAccounts email address.'), { status: 403 });
   }
   database = new Promise((resolve, reject) => {
     const open = indexedDB.open('workspace-froststock-' + account, 1);
@@ -35,11 +35,11 @@ export async function connect() {
 }
 
 const sharingURL = new URL('./api/sharing', import.meta.url);
-export const freezerSharing = () => request(sharingURL);
-export const shareFreezer = email => request(sharingURL, {
+export const kitchenSharing = () => request(sharingURL);
+export const shareKitchen = email => request(sharingURL, {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
 });
-export const unshareFreezer = email => request(new URL('./api/sharing/' + encodeURIComponent(email), import.meta.url), { method: 'DELETE' });
+export const unshareKitchen = email => request(new URL('./api/sharing/' + encodeURIComponent(email), import.meta.url), { method: 'DELETE' });
 
 const recognitionSettings = new URL('./api/recognition/settings', import.meta.url);
 export const deepSeekStatus = () => request(recognitionSettings);

@@ -64,6 +64,7 @@ func TestStorePhotoPairAndRevision(t *testing.T) {
 		}
 	}
 	item.Expiry, item.State, item.RawDate = "2027-11-22", "ready", "BEST BEFORE 22 NOV 2027"
+	item.Location = "fridge"
 	item.Revision = 1
 	item.DateCrop = &dateCrop{Left: .4, Top: .5, Right: .2, Bottom: .8}
 	invalid, _ := json.Marshal(item)
@@ -77,6 +78,12 @@ func TestStorePhotoPairAndRevision(t *testing.T) {
 		t.Fatalf("invalid candidate date accepted: %d", w.Code)
 	}
 	item.DateCandidates = []string{"2026-11-23", "2027-11-22"}
+	item.Location = "pantry"
+	invalid, _ = json.Marshal(item)
+	if w := call("PUT", invalid, "application/json", "", "", store.update); w.Code != 400 {
+		t.Fatalf("unsupported storage accepted: %d", w.Code)
+	}
+	item.Location = "fridge"
 	body, _ := json.Marshal(item)
 	if w := call("PUT", body, "application/json", "", "", store.update); w.Code != 200 {
 		t.Fatalf("update: %d %s", w.Code, w.Body.String())
@@ -84,7 +91,7 @@ func TestStorePhotoPairAndRevision(t *testing.T) {
 	if w := call("PUT", body, "application/json", "", "", store.update); w.Code != 409 {
 		t.Fatalf("stale revision accepted: %d", w.Code)
 	}
-	if w := call("GET", nil, "", "", "", store.list); w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(item.RawDate)) || !bytes.Contains(w.Body.Bytes(), []byte(`"dateCrop":{"left":0.25`)) {
+	if w := call("GET", nil, "", "", "", store.list); w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(item.RawDate)) || !bytes.Contains(w.Body.Bytes(), []byte(`"location":"fridge"`)) || !bytes.Contains(w.Body.Bytes(), []byte(`"dateCrop":{"left":0.25`)) {
 		t.Fatalf("list: %d %s", w.Code, w.Body.String())
 	}
 	if w := call("DELETE", nil, "", "", revisionTag(1), store.delete); w.Code != 409 {

@@ -9,7 +9,7 @@ import (
 
 func main() {
 	config := apphost.Config{
-		ID: "froststock", Name: "Froststock", Version: froststock.Version,
+		ID: "froststock", Name: "Freshstock", Version: froststock.Version,
 		Listen: "127.0.0.1:9048", MediaCapture: true,
 	}
 	if err := apphost.Main(config, froststock.UI(), func(host *apphost.Host) (apphost.Application, error) {

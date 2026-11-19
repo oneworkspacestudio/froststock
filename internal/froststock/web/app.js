@@ -1,10 +1,10 @@
-import { connect, allItems, saveItem, updateItem, removeItem, addItems, itemPhotoURL, syncPending, jobPhotos, loadPhoto, driveStatus, deepSeekStatus, configureDeepSeek, readWithDeepSeek, freezerSharing, shareFreezer, unshareFreezer } from './storage.js';
+import { connect, allItems, saveItem, updateItem, removeItem, addItems, itemPhotoURL, syncPending, jobPhotos, loadPhoto, driveStatus, deepSeekStatus, configureDeepSeek, readWithDeepSeek, kitchenSharing, shareKitchen, unshareKitchen } from './storage.js';
 import { isDate, offsetDate, daysFromToday, formatDate } from './dates.js';
 import { scanLabels } from './recognition.js';
 import { chooseExpiryCrop, validCrop } from './expiry-crop.js';
 
 const $ = selector => document.querySelector(selector);
-const icons = 'snowflake layout-grid history settings camera chevron-right scan-line search shield-check package x check download image-plus upload sparkles'.split(' ');
+const icons = 'boxes snowflake layout-grid history settings camera chevron-right scan-line search shield-check package x check download image-plus upload sparkles'.split(' ');
 const symbol = name => '<i aria-hidden="true" class="icon" data-icon="' + name + '"></i>';
 const iconStyle = document.createElement('style');
 iconStyle.textContent = icons.map(name => '[data-icon="' + name + '"]{--icon:url("./assets/icons/' + name + '.svg")}').join('\n');
@@ -19,6 +19,7 @@ let toastTimer;
 let items = [];
 let demo = localStorage.getItem('froststock-demo') === 'on';
 let filter = 'all';
+let locationFilter = 'all';
 let activePage;
 let inQueue = false;
 let syncing = false;
@@ -33,8 +34,11 @@ let firstPreview;
 let sessionCount = 0;
 let persistentRequested = false;
 let accountReady = false;
-let freezerOwner = false;
+let kitchenOwner = false;
 const cropOnCapture = $('#crop-on-capture');
+const scanLocation = $('#scan-location');
+scanLocation.value = localStorage.getItem('froststock-scan-location') === 'freezer' ? 'freezer' : 'fridge';
+scanLocation.addEventListener('change', () => localStorage.setItem('froststock-scan-location', scanLocation.value));
 cropOnCapture.checked = localStorage.getItem('froststock-crop-expiry') === 'on';
 cropOnCapture.addEventListener('change', () => localStorage.setItem('froststock-crop-expiry', cropOnCapture.checked ? 'on' : 'off'));
 const thumbnailURLs = new Map();
@@ -46,16 +50,18 @@ const preferences = {
 const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('froststock-inventory') : null;
 
 const sample = [
-  { id: 'sample-salmon', name: 'Atlantic salmon fillets', category: 'Fish & seafood', expiry: offsetDate(2), sampleImage: 'salmon', dateType: 'Use by' },
-  { id: 'sample-berries', name: 'Mixed summer berries', category: 'Fruit', expiry: offsetDate(6), sampleImage: 'berries', dateType: 'Best before' },
-  { id: 'sample-peas', name: 'Garden peas', category: 'Vegetables', expiry: offsetDate(67), sampleImage: 'peas', dateType: 'Best before' },
-  { id: 'sample-dumplings', name: 'Chicken gyoza', category: 'Prepared meals', expiry: offsetDate(-3), sampleImage: 'dumplings', dateType: 'Best before' },
+  { id: 'sample-salmon', name: 'Atlantic salmon fillets', category: 'Fish & seafood', location: 'fridge', expiry: offsetDate(2), sampleImage: 'salmon', dateType: 'Use by' },
+  { id: 'sample-berries', name: 'Mixed summer berries', category: 'Fruit', location: 'fridge', expiry: offsetDate(6), sampleImage: 'berries', dateType: 'Best before' },
+  { id: 'sample-peas', name: 'Garden peas', category: 'Vegetables', location: 'freezer', expiry: offsetDate(67), sampleImage: 'peas', dateType: 'Best before' },
+  { id: 'sample-dumplings', name: 'Chicken gyoza', category: 'Prepared meals', location: 'freezer', expiry: offsetDate(-3), sampleImage: 'dumplings', dateType: 'Best before' },
 ].map(item => ({ ...item, demo: true, state: 'ready', quantity: 1, created: Date.now() }));
 
 const routes = {
-  overview: 'My freezer', inventory: 'My freezer', expiring: 'Expiring soon',
-  history: 'Freezer history', settings: 'Settings',
+  overview: 'My kitchen', inventory: 'My kitchen', expiring: 'Expiring soon',
+  history: 'Food history', settings: 'Settings',
 };
+const locations = { fridge: 'Fridge', freezer: 'Freezer', unassigned: 'Unassigned' };
+const locationOf = item => item.location || 'unassigned';
 const states = {
   expired: 'Past date', soon: 'Expiring soon', ready: 'In date', review: 'Needs review',
   queued: 'Reading labels', pending: 'Saving to Drive', used: 'Used', none: 'No expiry date',
@@ -103,8 +109,18 @@ function render() {
   $('#toggle-demo').textContent = demo ? 'Clear examples' : 'Show examples';
   if (activePage === 'settings') return;
 
-  const source = activePage === 'history' ? records.filter(item => item.used)
+  const pageItems = activePage === 'history' ? records.filter(item => item.used)
     : activePage === 'expiring' ? current.filter(item => ['soon', 'expired'].includes(status(item))) : current;
+  const unassigned = pageItems.some(item => !item.location);
+  if (locationFilter === 'unassigned' && !unassigned) locationFilter = 'all';
+  for (const button of $('#storage-filters').querySelectorAll('button')) {
+    const value = button.dataset.value;
+    const count = value === 'all' ? pageItems.length : pageItems.filter(item => locationOf(item) === value).length;
+    button.querySelector('[data-storage-count]').textContent = count;
+    button.hidden = value === 'unassigned' && !unassigned;
+    button.setAttribute('aria-pressed', value === locationFilter);
+  }
+  const source = pageItems.filter(item => locationFilter === 'all' || locationOf(item) === locationFilter);
   const hasReview = source.some(item => status(item) === 'review');
   if (filter === 'review' && !hasReview) filter = 'all';
   $('#filters').hidden = activePage === 'history';
@@ -134,7 +150,9 @@ function render() {
   if (!found.length) {
     const filtered = Boolean(query) || filter !== 'all';
     const title = filtered ? 'No matching items' : activePage === 'history' ? 'No used items yet'
-      : activePage === 'expiring' ? 'Nothing due this week' : 'Your freezer is empty';
+      : activePage === 'expiring' ? 'Nothing due this week'
+        : locationFilter === 'fridge' ? 'Your fridge is empty'
+          : locationFilter === 'freezer' ? 'Your freezer is empty' : 'Your kitchen is empty';
     const note = filtered ? 'Try another search or filter.' : activePage === 'history' ? 'Items appear here when you mark them as used.'
       : activePage === 'expiring' ? 'Items with an approaching label date will appear here.' : 'Scan an item and its expiry label to get started.';
     list.innerHTML = '<div class="empty">' + symbol(filtered ? 'search' : 'package') + '<strong>' + title + '</strong><p>' + note + '</p>' +
@@ -149,7 +167,8 @@ function render() {
       '<span class="item-main">' + (photo ? '<img class="item-photo" alt="" loading="lazy" src="' + esc(photo) + '">' :
         '<span class="item-photo">' + symbol('package') + '</span>') +
       '<span class="item-name"><strong>' + esc(nameOf(item)) + '</strong><small>' + esc(item.category || 'Uncategorised') +
-      ' · ' + (item.quantity || 1) + '&nbsp;pc' + (item.quantity > 1 ? 's' : '') + '</small></span></span>' +
+      ' · ' + (item.quantity || 1) + '&nbsp;pc' + (item.quantity > 1 ? 's' : '') +
+      '</small><span class="item-location" data-location="' + locationOf(item) + '">' + locations[locationOf(item)] + '</span></span></span>' +
       '<span class="item-status"><span class="badge ' + state + '">' + states[state] + '</span>' +
       (date ? '<time class="item-date" datetime="' + esc(item.expiry) + '">' + esc(date) + '</time>' : '') +
       '</span><span class="item-arrow">' + symbol('chevron-right') + '</span></button>';
@@ -181,7 +200,7 @@ function applyRoute() {
   $('#settings').hidden = activePage !== 'settings';
   if (activePage === 'settings' && accountReady) {
     void refreshDeepSeekSettings();
-    if (freezerOwner) void refreshSharing();
+    if (kitchenOwner) void refreshSharing();
   }
   $('#page-title').textContent = routes[activePage];
   render();
@@ -290,6 +309,7 @@ function renderScanner() {
   $('#retake').hidden = step === 1;
   $('#crop-option').hidden = step === 1;
   cropOnCapture.disabled = processingPhoto;
+  scanLocation.disabled = processingPhoto;
   $('#retake').disabled = processingPhoto;
   const thumb = $('#first-thumb');
   thumb.hidden = !firstPreview;
@@ -314,6 +334,7 @@ function clearFirst() {
 
 function openScanner() {
   if (scanner.open || !accountReady) return;
+  if (locationFilter === 'fridge' || locationFilter === 'freezer') scanLocation.value = locationFilter;
   sessionCount = 0;
   displayScanError();
   scanner.showModal();
@@ -414,7 +435,9 @@ async function acceptPhoto(makeBlob) {
       if (dateCrop === undefined) return;
       const record = {
         id: id(), created: Date.now(), job: id(), state: 'queued', quantity: 1, itemPhoto, datePhoto: blob, dateCrop,
+        location: scanLocation.value,
       };
+      localStorage.setItem('froststock-scan-location', scanLocation.value);
       await saveItem(record);
       clearFirst();
       sessionCount++;
@@ -458,6 +481,8 @@ function showDetail(key) {
       '</figcaption></figure>' : '') + '</div>' : '') +
     (item.demo ? '<p class="detail-note">' + esc(item.category) + ' · ' + esc(item.dateType) + ' ' + formatDate(item.expiry) + '</p>'
       : '<form id="item-form"><label>Item name<input name="name" maxlength="100" value="' + esc(item.name) + '" placeholder="Enter the product name" required></label>' +
+      '<label>Storage location<select name="location"><option value=""' + (!item.location ? ' selected' : '') + '>Unassigned</option>' +
+      Object.entries(locations).filter(([value]) => value !== 'unassigned').map(([value, label]) => '<option value="' + value + '"' + (item.location === value ? ' selected' : '') + '>' + label + '</option>').join('') + '</select></label>' +
       '<div class="detail-columns"><label>Category<select name="category"><option value="">Uncategorised</option>' + options(categories, item.category) +
       '</select></label><label>Quantity<input name="quantity" type="number" min="1" max="999" value="' + (item.quantity || 1) + '" required></label></div>' +
       '<div class="detail-columns"><label>Label date<input name="expiry" type="date" min="1900-01-01" max="2199-12-31" value="' + esc(item.expiry) +
@@ -472,7 +497,7 @@ function showDetail(key) {
       '</pre><strong>Expiry photo</strong><pre>' + esc(item.rawDate || 'No text found') + '</pre>' +
       (item.visionItem || item.visionDate ? '<strong>Vision model</strong><pre>' + esc([item.visionItem, item.visionDate].filter(Boolean).join('\n')) + '</pre>' : '') +
       '</details><div class="detail-actions"><button class="button primary" type="submit"' + (item.revision ? '' : ' disabled') + '>' + symbol('check') + (item.review ? ' Confirm details' : ' Save details') +
-      '</button><button class="button subtle" type="button" data-action="used"' + (item.revision ? '' : ' disabled') + '>' + (item.used ? 'Return to freezer' : 'Mark as used') + '</button>' +
+      '</button><button class="button subtle" type="button" data-action="used"' + (item.revision ? '' : ' disabled') + '>' + (item.used ? 'Return to inventory' : 'Mark as used') + '</button>' +
       (item.state !== 'queued' && (item.revision || item.itemPhoto && item.datePhoto) ? '<button class="text-button" type="button" data-action="retry">Read labels again</button>' : '') +
       '<button class="text-button danger" type="button" data-action="delete">Delete</button></div></form>');
   if (!details.open) details.showModal();
@@ -503,7 +528,7 @@ async function exportBackup() {
   const url = URL.createObjectURL(new Blob([JSON.stringify({ schema: 1, items: data })], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'froststock-backup-' + offsetDate(0) + '.json';
+  link.download = 'freshstock-backup-' + offsetDate(0) + '.json';
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
   notification('Inventory backup downloaded.');
@@ -523,8 +548,8 @@ async function importBackup(file) {
   if (file.size > 250 * 1024 * 1024) throw new Error('This backup exceeds 250 MB.');
   let backup;
   try { backup = JSON.parse(await file.text()); }
-  catch { throw new Error('Choose a valid Froststock backup.'); }
-  if (backup?.schema !== 1 || !Array.isArray(backup.items)) throw new Error('Choose a valid Froststock backup.');
+  catch { throw new Error('Choose a valid Freshstock or Froststock backup.'); }
+  if (backup?.schema !== 1 || !Array.isArray(backup.items)) throw new Error('Choose a valid Freshstock or Froststock backup.');
   const existing = new Set((await allItems()).map(item => item.id));
   const restored = [];
   for (const record of backup.items) {
@@ -538,6 +563,7 @@ async function importBackup(file) {
       id: record.id, created: Number.isFinite(record.created) ? record.created : Date.now(),
       used: Number.isFinite(record.used) ? record.used : undefined, state: queued ? 'queued' : 'ready', job: id(),
       itemPhoto, datePhoto, name: text(record.name, 100), category: categories.includes(record.category) ? record.category : '',
+      location: ['fridge', 'freezer'].includes(record.location) ? record.location : '',
       dateCrop: validCrop(record.dateCrop) ? record.dateCrop : null, dateOnly: Boolean(queued && record.dateOnly),
       dateCandidates: Array.isArray(record.dateCandidates) ? [...new Set(record.dateCandidates.filter(isDate))].slice(0, 6) : [],
       quantity: Math.min(999, Math.max(1, Math.trunc(Number(record.quantity) || 1))),
@@ -566,6 +592,7 @@ const actions = {
   scan: openScanner, 'close-scan': () => { if (!processingPhoto) scanner.close(); }, capture,
   upload: () => $('#photo-file').click(), retake: () => { clearFirst(); displayScanError(); renderScanner(); },
   filter: value => { filter = value; render(); },
+  location: value => { locationFilter = value; render(); },
   details: showDetail, 'close-details': () => details.close(),
   'dismiss-demo': () => storeDemo(false), 'toggle-demo': () => storeDemo(!demo),
   export: exportBackup, import: () => $('#backup-file').click(),
@@ -573,7 +600,7 @@ const actions = {
     const result = await updateItem(currentDetail, item => ({ ...item, used: item.used ? undefined : Date.now() }));
     details.close();
     await changed();
-    if (result) notification(result.used ? 'Item moved to history.' : 'Item returned to the freezer.');
+    if (result) notification(result.used ? 'Item moved to history.' : 'Item returned to inventory.');
   },
   'crop-date': async () => {
     const item = items.find(record => record.id === currentDetail && record.revision);
@@ -627,7 +654,7 @@ document.addEventListener('submit', async event => {
   if (!name) { event.target.elements.name.focus(); return; }
   try {
     await updateItem(currentDetail, item => ({
-      ...item, name, category: fields.get('category'), quantity: Number(fields.get('quantity')),
+      ...item, name, category: fields.get('category'), location: fields.get('location'), quantity: Number(fields.get('quantity')),
       expiry: fields.get('expiry'), dateType: fields.get('dateType'), state: 'ready',
       review: false, reviewReason: '', dateCandidates: [], dateOnly: false, job: id(),
     }));
@@ -672,12 +699,12 @@ let sharingBusy = false;
 function showSharing({ emails }) {
   sharingList.innerHTML = emails.map(email => '<div class="setting-row"><span class="sharing-email">' + esc(email) +
     '</span><button type="button" class="button subtle" data-remove-share="' + esc(email) + '">Remove access</button></div>').join('');
-  sharingMessage.textContent = emails.length ? '' : 'Your freezer is currently private.';
+  sharingMessage.textContent = emails.length ? '' : 'Your kitchen inventory is currently private.';
 }
 
 async function refreshSharing() {
   try {
-    const result = await freezerSharing();
+    const result = await kitchenSharing();
     if (!sharingBusy) showSharing(result);
   } catch (error) {
     sharingMessage.textContent = error.message;
@@ -689,9 +716,9 @@ async function changeSharing(email, remove) {
   sharingBusy = true;
   for (const button of $('#sharing-settings').querySelectorAll('button')) button.disabled = true;
   try {
-    showSharing(await (remove ? unshareFreezer(email) : shareFreezer(email)));
+    showSharing(await (remove ? unshareKitchen(email) : shareKitchen(email)));
     if (!remove) sharingEmail.value = '';
-    sharingMessage.textContent = remove ? 'Access removed.' : 'Freezer shared. They can now sign in to Froststock.';
+    sharingMessage.textContent = remove ? 'Access removed.' : 'Kitchen shared. They can now sign in to Freshstock.';
   } catch (error) {
     sharingMessage.textContent = error.message;
   } finally {
@@ -791,16 +818,16 @@ setInterval(() => { if (!document.hidden) refresh().catch(storageError); }, 2000
 applyRoute();
 connect().then(access => {
   accountReady = true;
-  freezerOwner = access.owner;
-  $('#sharing-settings').hidden = !freezerOwner;
-  $('#deepseek-settings').hidden = !freezerOwner;
-  $('#deepseek-shared').hidden = freezerOwner;
-  $('#open-drive').hidden = !freezerOwner;
+  kitchenOwner = access.owner;
+  $('#sharing-settings').hidden = !kitchenOwner;
+  $('#deepseek-settings').hidden = !kitchenOwner;
+  $('#deepseek-shared').hidden = kitchenOwner;
+  $('#open-drive').hidden = !kitchenOwner;
   $('#main').hidden = false;
   $('#session-screen').hidden = true;
   if (activePage === 'settings') {
     void refreshDeepSeekSettings();
-    if (freezerOwner) void refreshSharing();
+    if (kitchenOwner) void refreshSharing();
   }
   return refresh();
 }).catch(storageError);

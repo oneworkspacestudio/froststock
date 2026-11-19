@@ -35,8 +35,8 @@ $rows=gh api "repos/$repo/releases?per_page=20" | ConvertFrom-Json
 if($LASTEXITCODE){throw 'Froststock release metadata unavailable'}
 $release=$rows | Where-Object tag_name -CEQ $tag
 if(!$release){
- $request=@{tag_name=$tag;target_commitish=$source;name="Froststock $tag";draft=$true;prerelease=$tag.Contains('-');
-            make_latest='false';body='Independent Froststock release for One Workspace. Install or update it from Workspace Updates.'}
+ $request=@{tag_name=$tag;target_commitish=$source;name="Freshstock $tag";draft=$true;prerelease=$tag.Contains('-');
+            make_latest='false';body='Freshstock fridge and freezer inventory, formerly Froststock, for One Workspace. Install or update it from Workspace Updates.'}
  $release=$request | ConvertTo-Json -Compress | gh api "repos/$repo/releases" --method POST --input - | ConvertFrom-Json
  if($LASTEXITCODE){throw 'Froststock draft creation failed'}
 }

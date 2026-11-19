@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f9f7f6">
-  <meta name="description" content="Track your freezer and scan food labels and expiry dates.">
-  <link rel="icon" href="./assets/icon-192.png">
+  <meta name="description" content="Keep track of food in your fridge and freezer. Scan labels, check dates and share your inventory.">
+  <link rel="icon" href="./assets/freshstock.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
   <link rel="stylesheet" href="./styles.css">
-  <title>Froststock · Freezer inventory</title>
+  <title>Freshstock · Fridge &amp; freezer</title>
 </head>
 <body>
   <div class="workspace">
     <header class="topbar">
-      <a class="brand" href="#overview" data-nav="overview" aria-label="Froststock freezer">
-        <span class="brand-mark"><i class="icon" data-icon="snowflake" aria-hidden="true"></i></span>Froststock
+      <a class="brand" href="#overview" data-nav="overview" aria-label="Freshstock food inventory">
+        <span class="brand-mark"><i class="icon" data-icon="boxes" aria-hidden="true"></i></span>Freshstock
       </a>
       <div class="header-actions">
         <a class="top-status" href="/" data-workspace-apps-trigger><i class="icon" data-icon="layout-grid" aria-hidden="true"></i> Apps</a>
@@ -22,22 +22,28 @@
       </div>
     </header>
     <section id="session-screen" class="session-screen" hidden>
-      <h1>Open your freezer</h1>
-      <p id="session-message">Sign in with your OneAccounts account to open your shared freezer.</p>
+      <h1>Open your kitchen</h1>
+      <p id="session-message">Sign in with your OneAccounts account to see your shared food inventory.</p>
       <a class="button primary" href="/_workspace/open/froststock">Continue with MyAccounts</a>
     </section>
     <main id="main" hidden>
       <p class="drive-status" id="drive-status" role="status" hidden></p>
       <div id="dashboard">
         <div class="page-heading freezer-heading">
-          <div><h1 id="page-title">My freezer</h1><p id="inventory-count"></p></div>
+          <div><h1 id="page-title">My kitchen</h1><p id="inventory-count"></p></div>
           <button class="button primary scan-food" type="button" data-action="scan"><i class="icon" data-icon="camera" aria-hidden="true"></i> Scan food</button>
         </div>
         <section class="inventory" aria-labelledby="page-title">
+          <div id="storage-filters" class="storage-filters" role="group" aria-label="Storage location">
+            <button type="button" data-action="location" data-value="all" aria-pressed="true">All food <span data-storage-count="all">0</span></button>
+            <button type="button" data-action="location" data-value="fridge" aria-pressed="false">Fridge <span data-storage-count="fridge">0</span></button>
+            <button type="button" data-action="location" data-value="freezer" aria-pressed="false">Freezer <span data-storage-count="freezer">0</span></button>
+            <button type="button" data-action="location" data-value="unassigned" aria-pressed="false" hidden>Unassigned <span data-storage-count="unassigned">0</span></button>
+          </div>
           <div id="demo-bar" class="demo-bar" hidden><strong>Sample inventory</strong><button type="button" class="text-button" data-action="dismiss-demo">Clear examples</button></div>
           <div class="inventory-controls">
             <div class="filters" id="filters" role="group" aria-label="Filter inventory">
-              <button type="button" class="filter" data-action="filter" data-value="all" aria-pressed="true">All</button>
+              <button type="button" class="filter" data-action="filter" data-value="all" aria-pressed="true">All dates</button>
               <button type="button" class="filter" data-action="filter" data-value="soon" aria-pressed="false">Expiring soon</button>
               <button type="button" class="filter" data-action="filter" data-value="expired" aria-pressed="false">Past date</button>
               <button type="button" class="filter" data-action="filter" data-value="review" aria-pressed="false" hidden>Needs review</button>
@@ -49,18 +55,18 @@
       </div>
       <section id="settings" class="settings" hidden aria-labelledby="settings-title">
         <div class="page-heading"><div><h1 id="settings-title">Settings</h1><p>Manage scanning and inventory preferences.</p></div></div>
-        <section class="settings-card" id="sharing-settings" hidden><h2>Share freezer</h2>
-          <p>People you add can scan, edit and remove items in this freezer. They sign in with their own account on your OneAccounts server.</p>
+        <section class="settings-card" id="sharing-settings" hidden><h2>Share kitchen</h2>
+          <p>People you add can scan, edit and remove fridge and freezer items. They sign in with their own account on your OneAccounts server.</p>
           <form id="sharing-form" class="deepseek-settings">
             <label for="sharing-email">OneAccounts email address</label>
             <input id="sharing-email" type="email" maxlength="254" autocomplete="email" required>
-            <button class="button primary" type="submit">Share freezer</button>
+            <button class="button primary" type="submit">Share kitchen</button>
           </form>
           <div id="sharing-list" class="sharing-list"></div>
           <p id="sharing-status" role="status"></p>
         </section>
         <section class="settings-card"><h2><i class="icon" data-icon="sparkles"></i> DeepSeek</h2>
-          <p id="deepseek-shared" hidden>Your scans use the freezer owner's label reader. The owner manages the DeepSeek key.</p>
+          <p id="deepseek-shared" hidden>Your scans use the kitchen owner's label reader. The owner manages the DeepSeek key.</p>
           <form id="deepseek-settings" class="deepseek-settings">
             <p>Saving a key makes DeepSeek the default label reader. Item photos and the expiry photo or its crop are sent to DeepSeek. Local scanning is available if a cloud scan fails.</p>
             <label for="deepseek-key">DeepSeek API key</label>
@@ -78,22 +84,23 @@
           <div class="setting-row"><div><strong>Vision model fallback</strong><p>Use SmolVLM 256M on this device when OCR can’t read a label. Downloads about 200 MB the first time and requires WebGPU.</p></div><label class="toggle"><input id="vision-enabled" type="checkbox" aria-label="Vision model fallback"><span></span></label></div>
         </section>
         <section class="settings-card"><h2><i class="icon" data-icon="shield-check"></i> Your data</h2>
-          <div class="setting-row"><label for="sort"><strong>Sort freezer items</strong></label><select id="sort"><option value="expiry">Expiry date</option><option value="newest">Newest</option><option value="name">Name</option></select></div>
-          <div class="setting-row"><div><strong>My Drive storage</strong><p>This freezer's records and photos are in the owner's Froststock folder. Everyone with shared access sees the same inventory in Froststock.</p></div><a id="open-drive" class="button subtle" href="/drive/files/My%20Drive/Froststock" hidden>Open My Drive</a></div>
-          <div class="setting-row"><div><strong>Freezer history</strong><p>View or restore items you’ve marked as used.</p></div><a class="button subtle" href="#history" data-nav="history"><i class="icon" data-icon="history"></i> View history</a></div>
-          <div class="setting-row"><div><strong>Sample inventory</strong><p>Try the freezer with example items.</p></div><button type="button" class="button subtle" data-action="toggle-demo" id="toggle-demo">Show examples</button></div>
-          <div class="setting-row"><div><strong>Inventory backup</strong><p>Export a copy or import a Froststock backup, including from the standalone preview.</p></div><div class="backup-buttons"><button type="button" class="button subtle" data-action="export"><i class="icon" data-icon="download"></i> Export</button><button type="button" class="button subtle" data-action="import"><i class="icon" data-icon="upload"></i> Import</button></div></div>
+          <div class="setting-row"><label for="sort"><strong>Sort food items</strong></label><select id="sort"><option value="expiry">Expiry date</option><option value="newest">Newest</option><option value="name">Name</option></select></div>
+          <div class="setting-row"><div><strong>My Drive storage</strong><p>Your records and photos are in the owner's Froststock folder. Everyone with shared access sees the same kitchen inventory.</p></div><a id="open-drive" class="button subtle" href="/drive/files/My%20Drive/Froststock" hidden>Open My Drive</a></div>
+          <div class="setting-row"><div><strong>Food history</strong><p>View or restore items you’ve marked as used.</p></div><a class="button subtle" href="#history" data-nav="history"><i class="icon" data-icon="history"></i> View history</a></div>
+          <div class="setting-row"><div><strong>Sample inventory</strong><p>Try Freshstock with example fridge and freezer items.</p></div><button type="button" class="button subtle" data-action="toggle-demo" id="toggle-demo">Show examples</button></div>
+          <div class="setting-row"><div><strong>Inventory backup</strong><p>Export your food and storage locations, or import a Freshstock or Froststock backup.</p></div><div class="backup-buttons"><button type="button" class="button subtle" data-action="export"><i class="icon" data-icon="download"></i> Export</button><button type="button" class="button subtle" data-action="import"><i class="icon" data-icon="upload"></i> Import</button></div></div>
         </section>
         <a class="button subtle settings-apps" href="/" data-workspace-apps-trigger><i class="icon" data-icon="layout-grid" aria-hidden="true"></i> Workspace apps</a>
       </section>
     </main>
   </div>
-  <nav class="mobile-nav" aria-label="Froststock">
-    <a href="#overview" data-nav="overview"><i class="home-icon" aria-hidden="true"></i> Freezer</a>
+  <nav class="mobile-nav" aria-label="Freshstock">
+    <a href="#overview" data-nav="overview"><i class="home-icon" aria-hidden="true"></i> Kitchen</a>
     <button type="button" data-action="scan"><i class="icon" data-icon="camera" aria-hidden="true"></i> Scan</button>
   </nav>
   <dialog id="scanner" class="dialog scanner" aria-labelledby="scanner-title">
     <div class="dialog-head"><h2 id="scanner-title">Scan food</h2><button type="button" class="icon-button" data-action="close-scan" aria-label="Close scanner"><i class="icon" data-icon="x"></i></button></div>
+    <label class="scan-location" for="scan-location">Store in <select id="scan-location"><option value="fridge">Fridge</option><option value="freezer">Freezer</option></select></label>
     <div class="steps"><div id="step-one" class="step active"><span>1</span> Item photo</div><i class="icon" data-icon="chevron-right"></i><div id="step-two" class="step"><span>2</span> Expiry photo</div></div>
     <div class="viewfinder" id="viewfinder"><video id="camera" autoplay playsinline muted hidden></video><div class="viewfinder-grid"></div><div class="viewfinder-placeholder" id="camera-placeholder"><i class="icon" data-icon="scan-line"></i><strong id="camera-heading">Photograph the item</strong><p id="camera-tip">Include the front of the pack or its label.</p></div><img id="first-thumb" hidden alt="Item photo"><span class="focus-frame"></span></div>
     <div id="scan-error" class="scan-error" role="status" hidden></div>

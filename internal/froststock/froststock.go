@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	Version  = "0.1.0-preview.9"
+	Version  = "0.1.0-preview.10"
 	photoMax = 3 << 20
 )
 
@@ -56,6 +56,7 @@ type entry struct {
 	Used           int64     `json:"used,omitempty"`
 	Name           string    `json:"name,omitempty"`
 	Category       string    `json:"category,omitempty"`
+	Location       string    `json:"location,omitempty"`
 	Quantity       int       `json:"quantity"`
 	Expiry         string    `json:"expiry,omitempty"`
 	DateCandidates []string  `json:"dateCandidates,omitempty"`
@@ -87,6 +88,9 @@ func (e entry) valid() bool {
 	if e.Expiry != "" && !validDate(e.Expiry) || len(e.DateCandidates) > 6 {
 		return false
 	}
+	if e.Location != "" && e.Location != "fridge" && e.Location != "freezer" {
+		return false
+	}
 	for _, candidate := range e.DateCandidates {
 		if !validDate(candidate) {
 			return false
@@ -109,7 +113,7 @@ type drive struct {
 
 func Register(host *apphost.Host, root string) error {
 	if !filepath.IsAbs(root) || filepath.Base(root) != "Froststock" || host.Config.Issuer == "" || host.Config.Owner == "" {
-		return errors.New("Froststock requires My Drive and a managed MyAccounts owner")
+		return errors.New("Freshstock requires My Drive and a managed MyAccounts owner")
 	}
 	cloud, err := newDeepSeek(host.Config.Data)
 	if err != nil {
@@ -196,7 +200,7 @@ func tempName() string {
 }
 
 func unavailable(w http.ResponseWriter) {
-	apphost.Problem(w, 503, "Froststock could not access its My Drive folder. Try again.")
+	apphost.Problem(w, 503, "Freshstock could not access its My Drive folder. Try again.")
 }
 
 func (d *drive) list(w http.ResponseWriter, r *http.Request) {

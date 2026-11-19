@@ -56,11 +56,11 @@ func (s *sharing) require(handler http.HandlerFunc) http.HandlerFunc {
 	return s.host.Require(func(w http.ResponseWriter, r *http.Request) {
 		allowed, err := s.allowed(r)
 		if err != nil {
-			apphost.Problem(w, 503, "Freezer sharing is unavailable. Try again.")
+			apphost.Problem(w, 503, "Kitchen sharing is unavailable. Try again.")
 			return
 		}
 		if !allowed {
-			apphost.Problem(w, 403, "Ask the freezer owner to share Froststock with your OneAccounts email address.")
+			apphost.Problem(w, 403, "Ask the kitchen owner to share Freshstock with your OneAccounts email address.")
 			return
 		}
 		handler(w, r)
@@ -70,7 +70,7 @@ func (s *sharing) require(handler http.HandlerFunc) http.HandlerFunc {
 func (s *sharing) owner(handler http.HandlerFunc) http.HandlerFunc {
 	return s.host.Owner(func(w http.ResponseWriter, r *http.Request) {
 		if !s.isOwner(r) {
-			apphost.Problem(w, 403, "Only the freezer owner can change these settings.")
+			apphost.Problem(w, 403, "Only the kitchen owner can change these settings.")
 			return
 		}
 		handler(w, r)
@@ -80,7 +80,7 @@ func (s *sharing) owner(handler http.HandlerFunc) http.HandlerFunc {
 func (s *sharing) status(w http.ResponseWriter, r *http.Request) {
 	allowed, err := s.allowed(r)
 	if err != nil {
-		apphost.Problem(w, 503, "Freezer sharing is unavailable. Try again.")
+		apphost.Problem(w, 503, "Kitchen sharing is unavailable. Try again.")
 		return
 	}
 	apphost.JSON(w, 200, map[string]bool{"owner": s.isOwner(r), "allowed": allowed})
@@ -125,7 +125,7 @@ func (s *sharing) add(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := s.host.DB.ExecContext(r.Context(),
 		"INSERT INTO froststock_shares(email) VALUES(?) ON CONFLICT(email) DO NOTHING", email); err != nil {
-		apphost.Problem(w, 503, "The freezer could not be shared. Try again.")
+		apphost.Problem(w, 503, "The kitchen inventory could not be shared. Try again.")
 		return
 	}
 	s.list(w, r)
